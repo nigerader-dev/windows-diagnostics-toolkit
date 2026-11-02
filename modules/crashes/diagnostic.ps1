@@ -230,7 +230,8 @@ function ConvertTo-CrashRecord {
         $component = $matches['App']
     }
     if ($component -match '[\\/]') {
-        $leaf = Split-Path -LiteralPath $component -Leaf
+        # Windows PowerShell 5.1 has no parameter set for -LiteralPath with -Leaf.
+        $leaf = Split-Path -Path $component -Leaf
         if (-not [string]::IsNullOrWhiteSpace($leaf)) { $component = $leaf }
     }
     $component = (($component -replace '[\r\n]+', ' ') -replace '\s{2,}', ' ').Trim().Trim('"')
