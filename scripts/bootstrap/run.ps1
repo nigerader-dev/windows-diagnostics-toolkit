@@ -44,7 +44,7 @@ function Invoke-WdtDownloadFile {
         throw "Refusing unapproved download URL: $Uri"
     }
 
-    Invoke-WebRequest -Uri $Uri -OutFile $Destination -UseBasicParsing
+    Invoke-WebRequest -Uri $Uri -OutFile $Destination -UseBasicParsing -TimeoutSec 60
 }
 
 function Assert-WdtPackageLayout {
