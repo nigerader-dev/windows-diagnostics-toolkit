@@ -431,11 +431,12 @@ function Invoke-DiagnosticScript {
     try {
         $utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false
         $findingNonce = [System.Guid]::NewGuid().ToString('N')
-        $escapedScriptPath = $ScriptPath.Replace("'", "''")
+        # PowerShell also treats typographic quotes as string delimiters.
+        $escapedScriptPath = [System.Management.Automation.Language.CodeGeneration]::EscapeSingleQuotedStringContent($ScriptPath)
         $escapedArguments = @($ScriptArguments | ForEach-Object {
                 $argument = [string]$_
                 if ($argument -match '^-[A-Za-z][A-Za-z0-9]*$') { $argument }
-                else { "'" + $argument.Replace("'", "''") + "'" }
+                else { "'" + [System.Management.Automation.Language.CodeGeneration]::EscapeSingleQuotedStringContent($argument) + "'" }
             })
         $commandText = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; `$ProgressPreference = 'SilentlyContinue'; & '$escapedScriptPath' $($escapedArguments -join ' ')"
         $encodedCommand = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($commandText))

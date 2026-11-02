@@ -821,6 +821,9 @@ function Get-WdtMemberSafetyIssue {
         if ((Test-WdtProcessRunnerPath $ScriptPath $RepositoryRoot) -and
             (($typeName -eq 'System.Diagnostics.Process' -and $member -eq 'GetProcessById' -and (Get-WdtEnclosingFunctionName $MemberAst) -ceq 'Stop-WdtProcessTree') -or
              ($typeName -eq 'System.Diagnostics.Stopwatch' -and $member -eq 'StartNew' -and (Get-WdtEnclosingFunctionName $MemberAst) -in @('Invoke-DiagnosticScript', 'Stop-WdtProcessTree')))) { return }
+        if ((Test-WdtProcessRunnerPath $ScriptPath $RepositoryRoot) -and
+            $typeName -eq 'System.Management.Automation.Language.CodeGeneration' -and $member -eq 'EscapeSingleQuotedStringContent' -and
+            (Get-WdtEnclosingFunctionName $MemberAst) -ceq 'Invoke-DiagnosticScript') { return }
         if ((Test-WdtEntrypointPath $ScriptPath $RepositoryRoot) -and
             $typeName -eq 'Security.Principal.WindowsIdentity' -and $member -eq 'GetCurrent' -and
             (Get-WdtEnclosingFunctionName $MemberAst) -ceq 'Invoke-WdtReport') { return }
