@@ -339,6 +339,10 @@ function Invoke-WdtReport {
         }
     } while ((Test-Path -LiteralPath $textReportPath) -or (Test-Path -LiteralPath $markdownReportPath))
 
+    # An unwritable folder must fail now, not after every module has run.
+    $textLines = @('Windows Diagnostics Toolkit - report in progress')
+    [System.IO.File]::WriteAllLines($textReportPath, $textLines, [System.Text.Encoding]::UTF8)
+
     $powerShellPath = Get-CurrentPowerShellPath
     $createdAt = Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'
     $results = New-Object System.Collections.Generic.List[object]
@@ -415,7 +419,7 @@ function Invoke-WdtReport {
         $writtenMarkdownPath = $markdownReportPath
     }
 
-    $exitCode = if (($results | Where-Object { $_.ExitCode -ne 0 }).Count -gt 0) { 1 } else { 0 }
+    $exitCode = if (@($results | Where-Object { $_.ExitCode -ne 0 }).Count -gt 0) { 1 } else { 0 }
     if ($exitCode -ne 0 -and -not $SuppressConsoleOutput) {
         Write-Warning 'One or more diagnostics completed with a non-zero exit code. See the report for details.'
     }
