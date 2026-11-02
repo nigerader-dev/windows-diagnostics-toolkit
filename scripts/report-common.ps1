@@ -70,7 +70,7 @@ function Protect-WdtCommandLineSecrets {
         return $Text
     }
 
-    $secretArgumentPattern = '(?i)(?<Option>(?<![A-Z0-9_-])(?:--?|/)(?:api[-_]?token|token|password|secret|key)(?![A-Z0-9_-]))(?:(?<Separator>[ \t]*[=:][ \t]*)(?<Value>"[^"\r\n]*"|''[^''\r\n]*''|[^\s"''`;&|]+)|(?<Separator>[ \t]+)(?<Value>"[^"\r\n]*"|''[^''\r\n]*''|[^\s"''`;&|]+))'
+    $secretArgumentPattern = '(?i)(?<Option>(?<![A-Z0-9_-])(?:--?|/)(?:(?:api|access|refresh|id|auth)[-_]?token|api[-_]?key|client[-_]?secret|token|password|passwd|pwd|secret|key)(?![A-Z0-9_-]))(?:(?<Separator>[ \t]*[=:][ \t]*)(?<Value>"[^"\r\n]*"|''[^''\r\n]*''|[^\s"''`;&|]+)|(?<Separator>[ \t]+)(?<Value>"[^"\r\n]*"|''[^''\r\n]*''|[^\s"''`;&|]+))'
     $secretArgumentEvaluator = [System.Text.RegularExpressions.MatchEvaluator]{
         param([System.Text.RegularExpressions.Match]$Match)
 
@@ -266,7 +266,7 @@ function Test-WdtDiagnosticNameMatch {
     $relativeIndex = $Index - $lineStart
     $diagnosticNamePatterns = @(
         '(?i)\b(?:Faulting application name|Application(?: Name)?|Process(?: Name)?|Image(?: Name)?|Dump(?: File)?(?: Name)?|DumpFile)\s*[:=]\s*(?<WdtValue>[^,;\r\n]+)',
-        '(?i)\b(?:Process|Application)\s+(?<WdtValue>.+?)(?=\s+(?:failed|hung|stopped|terminated|crashed|exited|is|was)\b|[,;]|$)'
+        '(?i)\b(?:Process|Application)\s+(?<WdtValue>[^\s,;]+(?:\s+[^\s,;]+){0,2}?(?=\s+(?:failed|hung|stopped|terminated|crashed|exited|is|was)\b)|[^\s,;]+)'
     )
 
     foreach ($pattern in $diagnosticNamePatterns) {
@@ -340,6 +340,15 @@ function Protect-WdtText {
         return $Candidate
     }
     $protectedText = Protect-WdtCommandLineSecrets -Text $Text
+
+    # Runs before the literal user name replacement, which would split the address.
+    $emailPattern = '(?<![A-Z0-9._%+-])[A-Z0-9._%+-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)*\.[A-Z]{2,}(?![A-Z0-9-])'
+    $emailRegex = New-Object System.Text.RegularExpressions.Regex(
+        $emailPattern,
+        [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+    )
+    $protectedText = Protect-WdtRegexMatches -Text $protectedText -Context $Context -Category USER -Regex $emailRegex
+
     $protectedText = Protect-WdtLiteralValue -Text $protectedText -Context $Context -Category USER -Value $Context.UserProfile -UsePathBoundary -TokenValueSelector $profileTokenValueSelector
 
     $userProfilePattern = '(?:[A-Z]:)?[\\/](?:Users|Documents and Settings)[\\/](?<WdtValue>[^\\/\r\n:]+)(?=$|[\\/])'
@@ -388,6 +397,18 @@ function Protect-WdtText {
         return $normalized
     }
     $protectedText = Protect-WdtRegexMatches -Text $protectedText -Context $Context -Category HOST -Regex $hostFieldRegex -CaptureGroupName 'WdtValue' -Validator $identityValueValidator -TokenValueSelector $hostTokenValueSelector
+
+    # DNS suffixes and proxy names identify the organization.
+    $networkNamePattern = '(?im)^\s*(?:DNS suffix|DNS search list|Proxy server|Proxy Server\(s\)|Auto config URL|Bypass List)\s*:\s*(?<WdtValue>[^\r\n]*?)\s*$'
+    $networkNameRegex = New-Object System.Text.RegularExpressions.Regex(
+        $networkNamePattern,
+        [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+    )
+    $networkNameValidator = {
+        param([string]$Candidate)
+        return -not [string]::IsNullOrWhiteSpace($Candidate) -and $Candidate -notmatch '^\s*(?:\(?none\)?|unknown|unavailable|not configured|<HOST-\d+>)\s*$'
+    }
+    $protectedText = Protect-WdtRegexMatches -Text $protectedText -Context $Context -Category HOST -Regex $networkNameRegex -CaptureGroupName 'WdtValue' -Validator $networkNameValidator
 
     if (-not [string]::IsNullOrWhiteSpace($Context.UserDomain) -and -not [string]::IsNullOrWhiteSpace($Context.UserName)) {
         $qualifiedUserName = '{0}\{1}' -f $Context.UserDomain, $Context.UserName
@@ -460,7 +481,8 @@ function Protect-WdtText {
     }
     $protectedText = Protect-WdtRegexMatches -Text $protectedText -Context $Context -Category ID -Regex $labelledDeviceIdRegex -CaptureGroupName 'WdtValue' -Validator $identifierValueValidator
 
-    $sidPattern = '(?<![A-Z0-9_-])S-\d-\d+(?:-\d+)+(?![0-9-])'
+    # Task names glue account SIDs to letters, so those are matched without a left boundary.
+    $sidPattern = '(?<![A-Z0-9_-])S-\d-\d+(?:-\d+)+(?![0-9-])|S-1-(?:5-21|12-1)-\d+-\d+-\d+-\d+'
     $sidRegex = New-Object System.Text.RegularExpressions.Regex(
         $sidPattern,
         [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
