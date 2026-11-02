@@ -78,7 +78,6 @@ function Get-PhysicalDiskInfo {
     }
     catch {
         Write-Warning "Could not read physical disks with CIM fallback. $($_.Exception.Message)"
-        return $null
     }
 }
 
@@ -159,7 +158,6 @@ function Get-VolumeInfo {
     }
     catch {
         Write-Warning "Could not read logical disks with CIM fallback. $($_.Exception.Message)"
-        return $null
     }
 }
 
@@ -174,6 +172,7 @@ Write-Section 'Physical Disks'
 if ($physicalDisks.Count -eq 0) {
     Write-Host 'No physical disk information available.'
     Write-Host 'Data availability: physical disk status is unavailable.'
+    Write-WdtFinding -Severity 'WARN' -Code 'DISK_DATA_UNAVAILABLE' -Message 'Physical disk status is unavailable.'
 }
 else {
     foreach ($disk in $physicalDisks) {
@@ -214,6 +213,7 @@ Write-Section 'Volumes'
 if ($volumes.Count -eq 0) {
     Write-Host 'No volume information available.'
     Write-Host 'Data availability: volume free-space data is unavailable.'
+    Write-WdtFinding -Severity 'WARN' -Code 'VOLUME_DATA_UNAVAILABLE' -Message 'Volume free-space data is unavailable.'
 }
 else {
     foreach ($volume in $volumes) {
